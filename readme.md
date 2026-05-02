@@ -10,7 +10,7 @@
 
 | 项目 | 当前值（发版时请与 `cpwpro/_version.py` 同步核对） |
 |------|-----------------------------------------------|
-| **CPW-Pro 版本** | `1.0.0` |
+| **CPW-Pro 版本** | `1.0.2` |
 | **已验证的官方引擎** | 与官方 readme 所述 **v2.5-alpha** 及 **同目录结构的 [Latest Release](https://github.com/HaujetZhao/CapsWriter-Offline/releases/latest)** 联调（结构含 `start_server.exe`、`start_client.exe`、`internal/`、`models/` 等）；验证参考日期 **2026-05** |
 
 **兼容性**：CPW-Pro 依赖「官方绿色包」的**目录布局与 exe 调用方式**。若官方日后更改文件名、路径或转写协议，可能需要更新本扩展；请关注你自己仓库主页上的 **「Releases」** 页的兼容性说明（在 GitHub 仓库页点击 *Releases → 查看最新版说明*）。
