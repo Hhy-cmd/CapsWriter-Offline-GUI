@@ -25,7 +25,7 @@ cd "你的\CapsWriter-Offline"
 .\scripts\make_release_overlay.ps1 -OutDir D:\releases -Version 1.0.1
 ```
 
-版本号默认读取 `cpwpro\_version.py` 中的 `__version__`。输出默认在仓库 `dist\`（已 `.gitignore`）。
+版本号默认读取 `cpwpro\_version.py` 中的 `__version__`。**未指定 `-OutDir` 时 ZIP 写在 `<当前打包的仓库根>\dist\`**（不是 `release`；与 `release` 里是否已有同名 ZIP 无关——脚本会先删再压）。若传入 **相对路径** `-OutDir`，则相对**你执行 PowerShell 时的当前目录**，已改为展开为**绝对路径**并打印，避免「不知道打哪去了」。
 
 **常见错误**
 

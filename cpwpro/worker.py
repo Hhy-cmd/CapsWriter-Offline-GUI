@@ -18,6 +18,7 @@ from typing import Callable
 from cpwpro.paths import project_root
 
 _ROOT = project_root()
+_CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
 
 def _http_headers_for_url(url: str) -> dict[str, str]:
@@ -246,33 +247,52 @@ class CPWWorker:
     @staticmethod
     def run_capswriter(audio_path: str, output_dir: str, log_fn: Callable[[str], None]) -> bool:
         exe = str(_ROOT / "start_client.exe")
-        root = str(_ROOT)
         if not os.path.exists(exe):
             log_fn(f"[Error] 找不到 start_client.exe：{exe}")
             return False
 
+        log_fn(f"[转写] 提交：{os.path.basename(audio_path)}")
+        ok, code = CPWWorker._run_client_process([exe, audio_path], log_fn)
+        if ok:
+            log_fn(f"[成功] {Path(audio_path).stem}.srt/.txt/.json 已生成。")
+            return True
+        if code is not None:
+            log_fn(f"[Warn] 客户端退出码 {code}。")
+        return False
+
+    @staticmethod
+    def _run_client_process(args: list[str], log_fn: Callable[[str], None]) -> tuple[bool, int | None]:
         try:
-            log_fn(f"[转写] 提交：{os.path.basename(audio_path)}")
             proc = subprocess.Popen(
-                [exe, audio_path],
+                args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 bufsize=0,
-                cwd=root,
+                cwd=str(_ROOT),
+                creationflags=_CREATE_NO_WINDOW,
             )
-            try:
-                proc.stdin.write(b"\n")
-                proc.stdin.flush()
-                proc.stdin.close()
-            except Exception:
-                pass
 
             buf = bytearray()
+            tail = bytearray()
+            replied_exit_prompt = False
             while True:
-                ch = proc.stdout.read(1)
+                ch = proc.stdout.read(1) if proc.stdout else b""
                 if not ch:
                     break
+                tail.extend(ch)
+                if len(tail) > 512:
+                    del tail[:-512]
+                if not replied_exit_prompt and proc.stdin:
+                    tail_text = _decode_subprocess_stdout_bytes(bytes(tail))
+                    if "按回车" in tail_text or "鎸夊洖杞" in tail_text:
+                        try:
+                            proc.stdin.write(b"\n")
+                            proc.stdin.flush()
+                            proc.stdin.close()
+                        except Exception:
+                            pass
+                        replied_exit_prompt = True
                 if ch in (b"\r", b"\n"):
                     if buf:
                         s = _decode_subprocess_stdout_bytes(bytes(buf)).strip()
@@ -286,12 +306,32 @@ class CPWWorker:
                 if s:
                     log_fn(f"[核心] {s}")
             proc.wait()
-
-            if proc.returncode == 0:
-                log_fn(f"[成功] {Path(audio_path).stem}.srt/.txt/.json 已生成。")
-                return True
-            log_fn(f"[Warn] 客户端退出码 {proc.returncode}。")
-            return False
+            return proc.returncode == 0, proc.returncode
         except Exception as exc:
             log_fn(f"[Error] 调用客户端异常：{exc}")
+            return False, None
+
+    @staticmethod
+    def run_capswriter_batch(audio_paths: list[str], log_fn: Callable[[str], None]) -> bool:
+        paths = [str(p) for p in audio_paths if str(p).strip()]
+        if not paths:
+            return True
+
+        exe = str(_ROOT / "start_client.exe")
+        if not os.path.exists(exe):
+            log_fn(f"[Error] 找不到 start_client.exe：{exe}")
             return False
+
+        if len(paths) == 1:
+            log_fn(f"[转写] 提交：{os.path.basename(paths[0])}")
+        else:
+            log_fn(f"[转写] 批量提交：{len(paths)} 个文件")
+
+        ok, code = CPWWorker._run_client_process([exe, *paths], log_fn)
+        if ok:
+            if len(paths) > 1:
+                log_fn(f"[成功] 批量转写完成：{len(paths)} 个文件。")
+            return True
+        if code is not None:
+            log_fn(f"[Warn] 批量客户端退出码 {code}。")
+        return False

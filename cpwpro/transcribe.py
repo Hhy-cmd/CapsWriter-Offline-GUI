@@ -158,20 +158,29 @@ def run_transcribe_all_vad(
                 shutil.rmtree(task_dir, ignore_errors=True)
                 continue
 
+            chunk_paths = [str(Path(info["filepath"])) for info in chunk_info]
+            hooks.set_progress(0.68 + (file_idx / total_files) * 0.25, f"VAD批量转写 {chunk_count} 块…")
+            hooks.log(f"[VAD] 批量提交 {chunk_count} 块，减少客户端反复启动。")
+            batch_ok = CPWWorker.run_capswriter_batch(chunk_paths, hooks.log)
+
+            if not batch_ok:
+                hooks.log("[VAD] 批量提交失败，回退为逐块转写。")
+                for idx, info in enumerate(chunk_info, start=1):
+                    chunk_path = Path(info["filepath"])
+                    lo = 0.68 + (file_idx / total_files) * 0.25
+                    hi = 0.68 + ((file_idx + 1) / total_files) * 0.25
+                    frac = lo + (idx - 1) / max(1, chunk_count) * max(0.01, hi - lo)
+                    hooks.set_progress(frac, f"VAD回退转写 {idx}/{chunk_count}…")
+                    hooks.log(
+                        f"[VAD] 回退转写第 {idx}/{chunk_count} 块："
+                        f"{info.get('offset_sec', 0.0):.2f}s + {info.get('duration_sec', 0.0):.2f}s"
+                    )
+                    ok = CPWWorker.run_capswriter(str(chunk_path), str(task_dir), hooks.log)
+                    if not ok:
+                        raise RuntimeError(f"chunk {idx}/{chunk_count} 转写失败：{chunk_path.name}")
+
             for idx, info in enumerate(chunk_info, start=1):
                 chunk_path = Path(info["filepath"])
-                lo = 0.68 + (file_idx / total_files) * 0.25
-                hi = 0.68 + ((file_idx + 1) / total_files) * 0.25
-                frac = lo + (idx - 1) / max(1, chunk_count) * max(0.01, hi - lo)
-                hooks.set_progress(frac, f"VAD转写 {idx}/{chunk_count}…")
-                hooks.log(
-                    f"[VAD] 正在转写第 {idx}/{chunk_count} 块："
-                    f"{info.get('offset_sec', 0.0):.2f}s + {info.get('duration_sec', 0.0):.2f}s"
-                )
-                ok = CPWWorker.run_capswriter(str(chunk_path), str(task_dir), hooks.log)
-                if not ok:
-                    raise RuntimeError(f"chunk {idx}/{chunk_count} 转写失败：{chunk_path.name}")
-
                 srt = find_capswriter_srt(chunk_path)
                 if not srt:
                     raise FileNotFoundError(f"chunk {idx}/{chunk_count} 未生成 SRT：{chunk_path.name}")

@@ -109,12 +109,22 @@ if (-not $Version) {
 }
 Assert-CpwOverlayVersionFormat -v $Version
 
-if (-not $OutDir) {
+$outDirImplicit = [string]::IsNullOrWhiteSpace($OutDir)
+if ($outDirImplicit) {
     $OutDir = Join-Path $RepoRoot "dist"
 }
 
+# 绝对路径：避免 -OutDir release 等相对路径随「当前工作目录」飘到意外位置；也不依赖 release 文件夹里旧文件
+if (-not [System.IO.Path]::IsPathRooted($OutDir)) {
+    $OutDir = [System.IO.Path]::GetFullPath((Join-Path ((Get-Location).Path) $OutDir))
+} else {
+    $OutDir = [System.IO.Path]::GetFullPath($OutDir)
+}
+$OutDir = $OutDir.TrimEnd('\', '/')
+
 $zipName = "CPW-Pro-overlay-$Version.zip"
 $zipPath = Join-Path $OutDir $zipName
+$zipPath = [System.IO.Path]::GetFullPath($zipPath)
 
 # Safe temp folder slug (hyphen-last char class avoids PowerShell `\v`/quote parse issues).
 $hyphenSlugPat = '[a-zA-Z0-9._-]'
@@ -143,7 +153,10 @@ $rootFiles = $CpwOverlayRootFiles
 
 Write-Host "Repo root: $RepoRoot"
 Write-Host "CPW-Pro version label: $Version"
-Write-Host "Output zip: $zipPath"
+Write-Host "Output zip (absolute): $zipPath"
+if ($outDirImplicit) {
+    Write-Host "Note: default OutDir is <RepoRoot>\dist (not a folder named release)." -ForegroundColor DarkCyan
+}
 
 if ($DryRun) {
     Write-Host "`n[DryRun] Mirror dirs:"
@@ -198,13 +211,23 @@ foreach ($f in $rootFiles) {
 }
 
 if (Test-Path -LiteralPath $zipPath) {
-    Remove-Item -LiteralPath $zipPath -Force
+    Remove-Item -LiteralPath $zipPath -Force -ErrorAction Stop
 }
 
-Compress-Archive -Path (Join-Path $staging "*") -DestinationPath $zipPath -CompressionLevel Optimal -Force
+try {
+    Compress-Archive -Path (Join-Path $staging "*") -DestinationPath $zipPath -CompressionLevel Optimal -Force -ErrorAction Stop
+} catch {
+    if (Test-Path -LiteralPath $staging) {
+        Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    throw ("Compress-Archive failed. Destination: {0}. Same-name file locked? Inner: {1}" -f $zipPath, $_.Exception.Message)
+}
 
 Remove-Item -LiteralPath $staging -Recurse -Force
 
+if (-not (Test-Path -LiteralPath $zipPath)) {
+    Write-Error "ZIP missing after build: $zipPath"
+}
 $len = (Get-Item -LiteralPath $zipPath).Length
 $mb = [math]::Round($len / 1MB, 2)
 Write-Host "`nDone: $zipPath"
