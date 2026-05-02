@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""兼容入口：请优先使用 python -m cpwpro"""
+from __future__ import annotations
 
 from cpwpro.ui.app import main
 

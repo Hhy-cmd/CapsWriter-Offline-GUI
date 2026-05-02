@@ -1,6 +1,6 @@
 # CapsWriter-Offline + CPW-Pro — 项目技术文档（全景版）
 
-> **说明**：本文档在官方 CapsWriter-Offline 架构说明基础上，并入 **CPW-Pro**（`cpw_pro_ui.py`）当前实现、侧车模块与推荐的代码分层，便于二次开发与 GitHub 开源发布。
+> **说明**：本文档在官方 CapsWriter-Offline 架构说明基础上，并入 **CPW-Pro**（Python 包 **`cpwpro`**，入口 `python -m cpwpro`）当前实现、目录布局与推荐的代码分层，便于二次开发与 GitHub 开源发布。
 
 ## 一、项目概述
 
@@ -9,7 +9,7 @@ CapsWriter-Offline 是一款**完全离线的语音输入与音视频转录工�
 1. **实时语音输入**：按下 CapsLock 讲话，松开后识别结果自动上屏
 2. **音视频文件转录**：将 mp4/mp3/wav/m4a 等文件转录为 srt 字幕 + txt 文本 + json 时间戳
 3. **AI 润色与翻译**：模块化 LLM 角色系统（`util/llm/` + `LLM/` 角色脚本），支持 OpenAI/DeepSeek/智谱/Ollama 等多厂商
-4. **CPW-Pro GUI**：基于 CustomTkinter 的 **独立工作台**，负责链接/文件输入、下载与 **16k WAV 准备**、拉起/检测 `start_server`、`start_client.exe` 文件转写、**字幕编辑 + 波形示波 + 播放**、基于 `prompts.json` 的 **流式 AI 笔记**（根目录 `llm_client.py`，与引擎侧 `util/llm/` 并存但职责不同）
+4. **CPW-Pro GUI**：基于 CustomTkinter 的 **独立工作台**，负责链接/文件输入、下载与 **16k WAV 准备**、拉起/检测 `start_server`、`start_client.exe` 文件转写、**字幕编辑 + 波形示波 + 播放**、基于 `prompts.json` 的 **流式 AI 笔记**（`cpwpro/support/llm_client.py`，与引擎侧 `util/llm/` 并存但职责不同）
 
 ---
 
@@ -19,7 +19,7 @@ CapsWriter-Offline 是一款**完全离线的语音输入与音视频转录工�
 
 ```
 ┌───────────────────────────────┐     ┌────────────────────────────────┐
-│  cpw_pro_ui.py + cpw_worker   │     │     CapsWriter-Offline 引擎     │
+│  cpwpro/（包）+ 根目录 shim   │     │     CapsWriter-Offline 引擎     │
 │  (CustomTkinter GUI 壳)       │     │                                │
 │                               │     │  ┌──────────┐  ┌───────────┐  │
 │  · 链接下载 (yt-dlp API)      │     │  │  Client  │  │  Server   │  │
@@ -30,36 +30,44 @@ CapsWriter-Offline 是一款**完全离线的语音输入与音视频转录工�
 │  · timestamp_quality / vad    │     │  │ core_    │  │ core_     │  │
 │                               │     │  │ client    │  │ server    │  │
 │  CPW-Pro 不 import ASR 模块   │     │  └──────────┘  └───────────┘  │
-│  仅子进程 + 根目录侧车 .py     │     │  WebSocket ◀──▶ ASR 推理      │
+│  仅子进程 + cpwpro 包 & 根侧车 .py │     │  WebSocket ◀──▶ ASR 推理      │
 └───────────────────────────────┘     └────────────────────────────────┘
 ```
 
-**发布形态注意**：发行包中 CPW-Pro 通过 **`start_client.exe` / `start_server.exe`** 与引擎交互；开发环境可用 `python core_client.py <wav>` 等价调试，但 GUI 代码路径写死为 exe（与根目录 `cpw_worker.py` 中 `_ROOT` 一致）。
+**发布形态注意**：发行包中 CPW-Pro 通过 **`start_client.exe` / `start_server.exe`** 与引擎交互；`cpwpro.worker` 以 **`cpwpro.paths.project_root()`**（项目根目录）定位 exe。开发环境可用 `python core_client.py <wav>` 等价调试。
 
 ### 2.2 进程模型
 
 | 进程 | 入口 | 职责 |
 |------|------|------|
-| **cpw_pro_ui.py** | `python cpw_pro_ui.py` | GUI 壳程序，管理 CapsWriter 子进程生命周期，提供视频下载→转写→AI润色完整工作流 |
+| **cpwpro（GUI）** | `python -m cpwpro` 或 `launcher/Launch_CPW-Pro.bat` | 包 `cpwpro.ui.app`：工作台；含可选系统托盘（pystray） |
 | **core_server.py** | `python core_server.py` | WebSocket 服务端，加载 ASR 模型，等待客户端连接并进行语音识别推理 |
 | **core_client.py** | `python core_client.py [file]` | 两种模式：(1) 默认麦克风模式，CapsLock 快捷键语音输入；(2) 给定文件路径则转录文件 |
 | **models/AI-Polish.py** | `python models/AI-Polish.py` | 独立的 AI 润色助手（备用入口，非主要流程） |
 
-**CPW-Pro GUI 侧车模块（与引擎解耦、不 import `util/client`）**
+**CPW-Pro 包 `cpwpro/`（与引擎解耦、不 import `util/client`）**
+
+| 路径 | 职责 |
+|------|------|
+| `cpwpro/ui/app.py` | `App` 主窗体、关闭到托盘、设置/笔记弹窗 |
+| `cpwpro/worker.py` | `CPWWorker`：yt-dlp、`ffmpeg`、启动 `start_server`，`start_client` 子进程 |
+| `cpwpro/progress.py` | 日志 → 进度条比例纯函数 |
+| `cpwpro/textutil.py` | `strip_ansi`、`normalize_url` |
+| `cpwpro/theme.py` | CTk 默认主题与示波 Canvas 色 |
+| `cpwpro/transcribe.py` | `run_*` 管线 + hooks |
+| `cpwpro/tray_support.py` | 可选系统托盘（`pystray`+`Pillow`） |
+| `cpwpro/paths.py` | `project_root()`：定位发行根 |
+| 根目录 `cpw_*.py`、`cw_transcribe.py` | **兼容 shim**，重新导出 `cpwpro.*`，旧 `import` 仍可用 |
+
+**其他 CPW 侧车（仍位于项目根，与包并列）**
 
 | 模块 | 行规模（约） | 职责 |
 |------|-------------|------|
-| `cpw_pro_ui.py` | ~2200+ | `App` 主窗体：布局、状态、线程调度、日志与进度、字幕 UI、设置/笔记弹窗 |
-| `cpw_worker.py` | ~280 | `CPWWorker`：yt-dlp、`ffmpeg`、探测/启动 `start_server.exe`、拉起 `start_client.exe` 并流式读 stdout |
-| `cpw_progress.py` | ~150 | 下载日志 %、`[核心]` 发送/转录秒数 → 进度条比例（纯函数）；UI 仅做节流与 `CTkProgressBar` |
-| `cpw_textutil.py` | ~70 | `strip_ansi`、`normalize_url`（Bilibili BV/av、日志中 URL 抽取） |
-| `cpw_theme.py` | ~35 | `apply_ctk_defaults`、`scope_canvas_bg_and_stroke`（CTk 外观与示波 Canvas 色，与布局解耦） |
-| `cw_transcribe.py` | ~230 | 后台线程：`run_download_then_extract`、`run_extract_all`、普通/VAD 转写编排（hooks → UI） |
-| `config_manager.py` | ~200 | `config.json` / `prompts.json` 读写合并 |
-| `media_utils.py` | ~475 | `AudioEngine`（sounddevice/soundfile）、`parse_srt`、波形数据 `get_scope_mono_tail` |
-| `llm_client.py`（根目录） | ~150 | CPW-Pro 专用：OpenAI 兼容流式 `stream_chat`、`build_messages`（ urllib，无引擎依赖） |
-| `timestamp_quality.py` | ~270 | 加载后对 WAV/SRT/JSON 做**只读**时间戳质量启发式报告 |
-| `vad_utils.py` | ~340 | pydub 静音切段 + 多段 SRT 时间轴拼回（长音频侧车策略，**不改** ASR 服务端） |
+| `cpwpro/support/config_manager.py` | ~200 | `config.json` / `prompts.json` 读写合并 |
+| `cpwpro/support/media_utils.py` | ~475 | `AudioEngine`（sounddevice/soundfile）、`parse_srt`、波形数据 `get_scope_mono_tail` |
+| `cpwpro/support/llm_client.py` | ~150 | CPW-Pro 专用：OpenAI 兼容流式 `stream_chat`、`build_messages`（ urllib，无引擎依赖） |
+| `cpwpro/support/timestamp_quality.py` | ~270 | 加载后对 WAV/SRT/JSON 做**只读**时间戳质量启发式报告 |
+| `cpwpro/support/vad_utils.py` | ~340 | pydub 静音切段 + 多段 SRT 时间轴拼回（长音频侧车策略，**不改** ASR 服务端） |
 
 **快捷键（Windows）**：全局与字幕框内 **播放/暂停、结束编辑** 使用 **F9** / **Ctrl+F9**（避免 Ctrl+Space 被输入法占用）。
 
@@ -69,21 +77,24 @@ CapsWriter-Offline 是一款**完全离线的语音输入与音视频转录工�
 
 ```
 CapsWriter-Offline/
-├── cpw_pro_ui.py          # ★ CPW-Pro GUI 主程序 (~2200+ 行，持续拆分为包，见第八节)
-├── cpw_worker.py          # CPW-Pro：下载 / ffmpeg / start_server / start_client 子进程
-├── cpw_progress.py        # 日志解析 → 任务进度条比例（与 UI 解耦）
-├── cpw_textutil.py       # ANSI 剔除、下载链接规范化（BV/av/URL）
-├── cpw_theme.py          # CTk 外观与示波配色（含可选 darkdetect）
-├── cw_transcribe.py       # 下载/批量抽轨/VAD·多文件转写线程管线
+├── launcher/              # Launch_CPW-Pro.bat · Launch_CPW-Pro-quiet.vbs（静默）
+├── cpw_pro_ui.py         # 兼容：`from cpwpro.ui.app import main`
+├── cpw_worker.py 等        # 兼容 shim → cpwpro.*
+├── cpwpro/
+│   ├── __main__.py       # python -m cpwpro
+│   ├── paths.py           # project_root()
+│   ├── worker.py · progress.py · textutil.py · theme.py · transcribe.py · tray_support.py
+│   ├── support/           # GUI 工作台支撑（配置 / LLM HTTP / 本地播放 / VAD 切段 / 时间戳诊断）
+│   │   ├── config_manager.py
+│   │   ├── media_utils.py
+│   │   ├── llm_client.py
+│   │   ├── timestamp_quality.py
+│   │   └── vad_utils.py
+│   └── ui/app.py         # ★ CPW-Pro 主窗体 (~2000+ 行)
 ├── core_client.py         # ★ CapsWriter 客户端入口 (~235行)
 ├── core_server.py         # ★ 服务端入口 (~124行)
 ├── config_client.py       # 客户端配置
 ├── config_server.py       # 服务端配置 + 模型路径 + 模型参数
-├── config_manager.py      # CPW：`config.json` + `prompts.json`
-├── media_utils.py         # 音频引擎 + SRT 解析 + 示波取样 (~475行)
-├── llm_client.py          # CPW-Pro 专用 LLM 流式客户端（与 util/llm/llm_client 不同）
-├── timestamp_quality.py   # 时间戳质量只读诊断
-├── vad_utils.py           # pydub 切段与 SRT 拼轴（可选长音频路径）
 ├── requirements.txt       # CPW-Pro：`customtkinter`, `tkinterdnd2`, `yt-dlp`, `pydub` 等
 ├── config.example.json    # CPW-Pro 配置模板（可进仓库，`api_key` 为空）
 ├── config.json            # CPW-Pro 应用配置（**本地生成**，`.gitignore` 忽略，勿提交）
@@ -313,7 +324,7 @@ CapsWriter-Offline/
 
 **CPW-Pro 笔记流式客户端（GUI 侧）**：
 
-- 实现位置：根目录 [llm_client.py](llm_client.py)
+- 实现位置：[cpwpro/support/llm_client.py](cpwpro/support/llm_client.py)
 - 仅服务 **转写完成后的「AI 总结 / 复习笔记」**：读 `prompts.json` 模板 + `config.json` 中 `api_base_url` / `model_name` 等
 - **与 `util/llm/` 无 import 关系**，避免 GUI 与听写进程强耦合
 
@@ -516,7 +527,7 @@ class RecognitionResult:
 
 ### 4.5 音频引擎
 
-**文件**：[media_utils.py](media_utils.py) (446行)
+**文件**：[cpwpro/support/media_utils.py](cpwpro/support/media_utils.py) (446行)
 
 **`AudioEngine` 类**：
 - 基于 `sounddevice.OutputStream` 的非阻塞播放引擎
@@ -602,11 +613,11 @@ lifecycle.cleanup()  # 执行所有清理回调
 - 配置项：字体/颜色/大小/背景色/显示时长/初始尺寸
 - 支持 ESC 关闭
 
-### 4.11 时间戳质量诊断（`timestamp_quality.py`）
+### 4.11 时间戳质量诊断（`cpwpro/support/timestamp_quality.py`）
 
 对**已生成**的 WAV + SRT +（可选）JSON 做启发式检查：片段起止是否单调、与音频总长是否离谱、JSON 字级时间是否异常均匀等。CPW-Pro 在 `load_transcript` 后把报告打印到日志，**不重写**转写产物。
 
-### 4.12 长音频侧车切片（`vad_utils.py`）
+### 4.12 长音频侧车切片（`cpwpro/support/vad_utils.py`）
 
 基于 **pydub** `detect_nonsilent` 生成无静音 WAV 切片，切片分别调用既有 `start_client.exe`；转写结束后用 **`stitch_srt_chunks`** 将各段 SRT 时间轴对齐回整条音频。这是对 CPW-Pro **调度层** 的补充，**不替代**引擎内 WebSocket 分段。
 
@@ -666,7 +677,7 @@ lifecycle.cleanup()  # 执行所有清理回调
    - **CPW-Pro**：当前使用 **`yt-dlp` Python API**（`YoutubeDL`），便于进度回调与 SSL 重试；与「仅 CLI」并不矛盾，属 GUI 层实现选择。
 4. **音频处理**：通过 **ffmpeg 命令行** (`-ac 1 -ar 16000`) 生成引擎所需 WAV。
 5. **LLM**：
-   - **CPW-Pro 笔记**：根目录 `llm_client.py`；
+   - **CPW-Pro 笔记**：`cpwpro/support/llm_client.py`；
    - **听写管线润色**：优先 `util/llm/` 体系。
 6. **日志**：引擎侧通过 `logger`；CPW-Pro 主要写界面 `CTkTextbox` + `[核心]` 前缀转发子进程 stdout。
 7. **多编码兼容**：SRT/文本读写需 utf-8-sig → utf-8 → gbk 等回退（`parse_srt` 已实现）。
@@ -716,7 +727,7 @@ lifecycle.cleanup()  # 执行所有清理回调
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**CPW-Pro 增补数据流**：URL/拖放 → `cpw_worker` 下载或本地 pick → ffmpeg 16k WAV → （可选）`vad_utils` 切段 → `start_client.exe` 逐段 → 产出 srt/txt/json → `load_transcript` → `timestamp_quality` 诊断日志 → UI 播放/字幕/LLM 笔记。
+**CPW-Pro 增补数据流**：URL/拖放 → `cpwpro.worker` 下载或本地 pick → ffmpeg 16k WAV → （可选）`vad_utils` 切段 → `start_client.exe` 逐段 → 产出 srt/txt/json → `load_transcript` → `timestamp_quality` 诊断日志 → UI 播放/字幕/LLM 笔记。
 
 ---
 
@@ -737,11 +748,11 @@ lifecycle.cleanup()  # 执行所有清理回调
 
 | 模块 | 说明 |
 |------|------|
-| `cpw_worker.py` | yt-dlp、ffmpeg、`start_server` / `start_client` 子进程与 stdout 行解码 |
-| `cpw_progress.py` | `[下载]` 百分比、`[核心]` 发送/转录日志 → 条上比例；`App` 负责节流与 indeterminate |
-| `cpw_textutil.py` | `strip_ansi`、`normalize_url`（与 Tk 无关） |
-| `cpw_theme.py` | `apply_ctk_defaults`、`scope_canvas_bg_and_stroke`（示波 Canvas 与 CTk 主题一致） |
-| `cw_transcribe.py` | 后台线程：`run_*` 管线 + hooks |
+| `cpwpro/worker.py` | yt-dlp、ffmpeg、`start_server` / `start_client` 子进程与 stdout 行解码 |
+| `cpwpro/progress.py` | `[下载]` 百分比、`[核心]` 发送/转录日志 → 条上比例；`App` 负责节流与 indeterminate |
+| `cpwpro/textutil.py` | `strip_ansi`、`normalize_url`（与 Tk 无关） |
+| `cpwpro/theme.py` | `apply_ctk_defaults`、`scope_canvas_bg_and_stroke`（示波 Canvas 与 CTk 主题一致） |
+| `cpwpro/transcribe.py` | 后台线程：`run_*` 管线 + hooks |
 
 ### 8.3 建议的下一阶段包结构（不改动引擎 `util/`）
 
@@ -767,7 +778,7 @@ cpwpro/
 
 - 根目录 **`.gitignore`**（瘦身远程仓库）：忽略 `config.json`、`logs/`、`output/`、虚拟环境；另忽略 **`models/**/*.gguf`**、**`models/**/*.onnx`**、`internal/`、根目录 **`start_client.exe`** / **`start_server.exe`**、以及 **`util/llama/bin/*.dll`** / **`*.exe`**（大模型与内嵌运行时改由官方 Release 自备，clone 后从本机发行目录补齐即可）。仓库内保留 **`config.example.json`**。**他人拉仓库后**：首启 GUI 会自动生成 `config.json`（空密钥），在设置里填写即可；也可自行复制示例文件为 `config.json`。**切勿**把含真实密钥的 `config.json` 推送到远程。
 - 若历史上曾提交过含密钥的 `config.json`：在云平台**吊销/轮换**该密钥，并视情况用 `git filter-repo` / BFG 清历史（仅改 `.gitignore` 不能从旧 commit 里抹去密钥）。
-- `readme.md` 链到本文档；单列 CPW-Pro 依赖（`requirements.txt`）
+- 根目录 **`GITHUB_CLONE_SETUP.md`**：**从 GitHub 仅拉源码**时如何补齐官方 `exe` / `internal` / 模型与工作流（路径 A：官方包为底板；路径 B：克隆后手动复制）。
 - 许可证：区分上游 CapsWriter、本 GUI 补丁、第三方模型权重
 - 截图含：拖放区、日志进度条、`start_client` 输出、字幕区、波形条
 - （可选）CI：`py_compile` / 静态检查，不要求无头跑 GUI
@@ -775,4 +786,4 @@ cpwpro/
 ---
 
 *文档版本：2026-05-02 · 合并 CapsWriter 引擎说明与 CPW-Pro 当前实现、模块化路线*  
-*工作区：`cpw_pro_ui.py`、`cpw_worker.py`、`cpw_progress.py`、`cpw_textutil.py`、`cpw_theme.py`、`cw_transcribe.py`、引擎 `core_*` / `util/*`*
+*工作区：`cpwpro/`（含 `cpwpro/support/`）、`launcher/`、根目录兼容 shim、引擎 `core_*` / `util/*`*

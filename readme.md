@@ -88,7 +88,7 @@ LLM 角色既可以使用 Ollama 运行的本地模型，又可以用 API 访问
 
 ## 💻 CPW-Pro GUI（从源码运行 / 克隆本仓库）
 
-本仓库若在官方发行版基础上增加了 **`cpw_pro_ui.py`** 等脚本，可先按上文准备 **VC++**、**模型** 并照常启动服务端与引擎；再在项目根目录用 Python 环境与 `requirements.txt` 启动 GUI。**`config.json` 不会进入 Git**：首次启动 GUI 时程序会自动在项目根目录生成默认配置（不含 API Key），随后在界面 **设置** 中填写你自己的 `api_base_url`、`api_key`、模型名等即可。可参考根目录 **`config.example.json`** 字段说明。**从 Git 克隆时**：`models/` 下 `*.gguf` / `*.onnx`、`internal/`、`start_server.exe` / `start_client.exe`、`util/llama/bin` 内 DLL 等**不会进仓库**，需从本机已解压的发行包中保留，或另行从 [官方 Releases](https://github.com/HaujetZhao/CapsWriter-Offline/releases) 下载对齐。（详细架构见 **`PROJECT_DOCUMENTATION.md`**。）
+本仓库若在官方发行版基础上增加了 **CPW-Pro**（包名 `cpwpro`），可先按上文准备 **VC++**、**模型** 并照常启动服务端与引擎；在**项目根目录**执行 **`python -m cpwpro`**（有虚拟环境时 `myenv\Scripts\python.exe -m cpwpro`）。**Windows**：可双击 **`launcher\Launch_CPW-Pro.bat`**（有控制台报错信息）或 **`launcher\Launch_CPW-Pro-quiet.vbs`**（静默、无黑窗，需已安装依赖）。**`config.json` 不会进入 Git**：首启 GUI 会自动生成默认配置，随后在 **设置** 中填写 API 等；也可参考 **`config.example.json`**。**从 Git 克隆时**：`models/` 下权重、`internal/`、`start_*.exe` 等仍须自备或从 [官方 Releases](https://github.com/HaujetZhao/CapsWriter-Offline/releases) 获得（见 **`GITHUB_CLONE_SETUP.md`**）。**主窗体与任务栏图标**：`assets\icon.ico`；**托盘专用图**（可选）将 **`assets\cpw_pro_tray.png`** 或 **`assets\cpw_icon_tray.ico`** 放入 `assets\`，或设环境变量 **`CPW_TRAY_ICON`** 指向 ico/png 绝对路径。（详细架构 **`PROJECT_DOCUMENTATION.md`**；托盘需 `pip install pystray pillow`。）
 
 
 ## 🎤 模型说明

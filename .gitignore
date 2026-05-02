@@ -4,6 +4,11 @@
 config.json
 cpw_config.json
 
+# 本地 IDE / 助手（勿提交）
+.claude/
+.cursor/
+.mcps/
+
 # 常见密钥载体
 .env
 .env.*
@@ -42,11 +47,6 @@ output/
 .pytest_cache/
 .coverage
 htmlcov/
-
-# 本地 IDE / 助手配置（勿进公开仓库）
-.claude/
-.cursor/
-.mcps/
 
 # —— GitHub：模型权重与本机二进制（体积过大，按官方 Release 自备）——
 # ASR/GGUF/ONNX 权重（models 下仍可保留 ipynb、py、说明 txt、演示音频等小文件）
