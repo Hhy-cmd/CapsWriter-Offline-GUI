@@ -1,0 +1,8 @@
+{
+  "provider": "自定义",
+  "api_base_url": "https://api.openai.com/v1",
+  "api_key": "",
+  "model_name": "gpt-4o-mini",
+  "template_name": "精炼复习笔记",
+  "output_dir": "output"
+}

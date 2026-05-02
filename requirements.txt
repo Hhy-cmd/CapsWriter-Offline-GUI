@@ -1,0 +1,12 @@
+cffi==2.0.0
+customtkinter==5.2.2
+darkdetect==0.8.0
+numpy==2.4.4
+packaging==26.2
+pycparser==3.0
+pygame-ce==2.5.7
+sounddevice==0.5.5
+soundfile==0.13.1
+tkinterdnd2==0.4.3
+windnd==1.0.7
+yt-dlp==2026.3.17

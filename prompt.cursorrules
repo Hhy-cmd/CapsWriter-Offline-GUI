@@ -1,0 +1,37 @@
+系统指令与架构限制（严格遵守）：
+我希望你在这个目录下辅助我开发一个现代化的 GUI 软件（名为 CPW-Pro），用于全自动调度本目录下的 CapsWriter-Offline 工具。
+
+### 🚫 绝对红线（Red Lines）：
+
+
+# 权限更新与红线边界（极其重要）
+为了推进开发，我们重新定义你的读写权限：
+🟢 **绿灯区（你可以任意修改、重构）：**
+*   你之前创建的 `cpw_pro_ui.py`。
+*   你可以新建独立的工具文件（如 `utils.py`, `llm_processor.py` 等）。
+*   你可以新建配置文件（如 `config.json`）。
+🔴 **绝对红线（绝对不可修改、重命名或删除）：**
+*   本目录下**除上述绿灯区之外**的原有核心文件（如 `start.py`, `core/`, `models/` 等 CapsWriter 原生文件）。所有的转写调度仍必须通过 `subprocess` 黑盒调用。
+
+### ⚙️ 架构与调用方式（Architecture）：
+
+#### 黑盒调用： 
+
+请将 CapsWriter-Offline 视作一个独立的黑盒 CLI 工具。当需要进行语音转写时，必须且只能使用 Python 的 subprocess 模块，通过命令行的方式去调用它（如 python start.py xxx 或执行其打包好的 exe），并捕获其输出日志展示在我们的 UI 上。
+
+#### UI 框架：
+
+ 请使用 CustomTkinter 编写现代化、支持暗黑模式的 GUI 界面。
+
+#### 视频下载模块： 
+
+请使用 yt-dlp 库处理视频链接（特别是 Bilibili 的 BV 号）的解析和下载。
+
+#### 音频处理模块： 
+
+使用 subprocess 静默调用本地的 ffmpeg，将下载的视频或用户拖入的视频提取为 .wav 或 .mp3 格式，再喂给 CapsWriter-Offline。
+
+#### 自动清理模块（Cleanup）：
+
+ 工作流结束后，自动将生成的 TXT/SRT 等结果文件移动到用户指定的统一输出目录，并彻底删除过程中产生的临时下载视频和提取的音频文件，保持目录整洁。
+
