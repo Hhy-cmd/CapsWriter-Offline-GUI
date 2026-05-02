@@ -8,4 +8,9 @@ from __future__ import annotations
 
 from cpwpro.paths import project_root
 
-__all__ = ["project_root"]
+try:
+    from cpwpro._version import __version__ as __cpw_version__
+except Exception:
+    __cpw_version__ = "0.0.0-dev"
+
+__all__ = ["project_root", "__cpw_version__"]

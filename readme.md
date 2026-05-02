@@ -1,3 +1,152 @@
+# CPW-Pro · CapsWriter-Offline 扩展套件
+
+![demo](assets/demo.png)
+
+**CPW-Pro**（包名 **`cpwpro`**）是在 **[CapsWriter-Offline](https://github.com/HaujetZhao/CapsWriter-Offline)** 之上的一层 **桌面「语音转写工作站」**：把你已经拥有的**官方离线引擎**接到**更清晰的内容创作流水线**里——链接/本地音视频进来，**规整为 16 kHz WAV**，调度 **`start_client.exe`** 做 ASR，再用**波形与时间轴对齐的字幕编辑器**校对，最后可选用 **Prompt 模板 + OpenAI 兼容 API** 生成结构化笔记。**官方负责「听得准」；CPW-Pro 负责「接得顺、改得爽、归档方便」。**
+
+若想**完整阅读本产品说明**（意义、边界、模块级功能表、典型流程），请参阅 **`docs/CPW_PRO_OVERVIEW.zh.md`**。若关心**源码目录与技术拓扑**，请参阅 **`PROJECT_DOCUMENTATION.md`**。
+
+> **重要**：本仓库提供 **CPW-Pro 与工作流脚本**；**语音识别引擎、内置运行时与模型权重**仍须从 [**官方 Releases**](https://github.com/HaujetZhao/CapsWriter-Offline/releases) 与 [**Models**](https://github.com/HaujetZhao/CapsWriter-Offline/releases/tag/models) 获取。本项目为社区扩展，**不与 CapsWriter 官方发行版划等号**；二进制与 GGUF/ONNX 的版权与分发策略以官方为准。
+
+| 项目 | 当前值（发版时请与 `cpwpro/_version.py` 同步核对） |
+|------|-----------------------------------------------|
+| **CPW-Pro 版本** | `1.0.0` |
+| **已验证的官方引擎** | 与官方 readme 所述 **v2.5-alpha** 及 **同目录结构的 [Latest Release](https://github.com/HaujetZhao/CapsWriter-Offline/releases/latest)** 联调（结构含 `start_server.exe`、`start_client.exe`、`internal/`、`models/` 等）；验证参考日期 **2026-05** |
+
+**兼容性**：CPW-Pro 依赖「官方绿色包」的**目录布局与 exe 调用方式**。若官方日后更改文件名、路径或转写协议，可能需要更新本扩展；请关注你自己仓库主页上的 **「Releases」** 页的兼容性说明（在 GitHub 仓库页点击 *Releases → 查看最新版说明*）。
+
+---
+
+## CPW-Pro 解决什么问题？
+
+| 痛点 | CPW-Pro 的做法 |
+|------|----------------|
+| 只有 URL / 合集素材，先要下载再转容器 | **yt-dlp 解析下载**（可选网络） + **ffmpeg 抽音频**统一到 **16 kHz mono WAV** |
+| 黑窗口日志难读、不知道卡在哪一段 | **`cpwpro.worker` + progress 日志解析**，主界面日志与繁忙状态一体展示 |
+| 转完要试听、波形对轨、分页改错别字 | **内置播放器**（sounddevice/soundfile）、**波形与卡拉 OK 高亮行**、**字幕分页编辑**，**Ctrl+S** 落盘 **SRT** |
+| 极长音视频一次喂给 client 压力大 | **VAD 切片转写（可选）**：静音切段 → 分段转写 → **时间轴拼回**（`cpwpro/support/vad_utils.py`，不碰服务端模型代码） |
+| 想判断时间戳是「声学对齐」还是「均匀占位」启发式提示 | **`timestamp_quality` 只读诊断**，结果打在日志 `[TimeDiag]` |
+| 希望把字幕变成复习笔记 / 纪要 / Markdown | **`prompts.json` 模板库** + **`llm_client` 流式 SSE**（与官方 `util/llm/` 语音角色系统是**两套能力**，可同时存在） |
+
+---
+
+## CPW-Pro 功能一览（精要）
+
+- **输入**：链接框（BV/通用 URL）+ **拖放本地媒体**（tkinterdnd2；可选用 `CPW_DISABLE_TKDND=1` 关闭拖放）。
+- **转写链路**：ffmpeg 预处理 → （可选 **VAD**）→ **`start_server` 检测或提示** → 子进程 **`start_client`** → 载入 **SRT/JSON**。
+- **审听与校对**：暂停/拖动进度、**F9 / Ctrl+F9** 绑定播放与字幕区内快捷操作。
+- **设置**：`config.json` / `config.example.json`；API **Base URL**、模型名、多套**服务商预设**，以及 **Prompt** 库的增删改。
+- **系统托盘**：`pystray` + `Pillow`；支持 **`CPW_TRAY_NO_HIDE`**（关窗即退出）、**`CPW_TRAY_DISABLE`**（不启用托盘）、**`CPW_TRAY_ICON`**（自定义图标）。
+- **启动**：`python -m cpwpro`、`launcher\Launch_CPW-Pro.bat`、静默 **`Launch_CPW-Pro-quiet.vbs`**（pythonw）。
+- **支撑代码位置**：工作台专用逻辑集中于 **`cpwpro/`** 与 **`cpwpro/support/`**（配置、HTTP LLM、本地音频引擎、VAD、时间戳诊断），**不 import 官方 ASR 推理内核**。
+
+---
+
+## 与官方 CapsWriter 的关系（不重复、不弱化）
+
+下表帮助读者**同时重视两边**：官方 README（本页「附录」全文保留）写的是**听写输入法级别的体验**；CPW-Pro 写的是**音视频内容生产侧的 GUI**。
+
+| 能力维度 | CapsWriter（官方） | CPW-Pro（本扩展） |
+|----------|---------------------|---------------------|
+| 实时快捷键听写 | 核心场景 | **不替换**；仍用官方 client |
+| 单文件甩给 exe 转写 | 支持 | **编排 + 预处理 + UI** |
+| 链接下载 / 拖拽队列 / 波形字幕编辑 | — | **主战场** |
+| ASR 模型与 WebSocket | 核心实现 | **通过 exe 调度，不绕过** |
+
+---
+
+## 典型场景（可以这样用）
+
+1. **课程回放 → 字幕稿**：粘贴链接 → 转写 → 卡拉 OK 校对 → 导出 **SRT** → 归档或上传。  
+2. **访谈 / 录音 → Markdown 笔记**：转写后在 **AI 笔记**中选「会议纪要」「复习笔记」等模板 → **流式**生成 → **复制或 .md**。  
+3. **长播客切段**：勾选 **VAD 切片转写**（需 **pydub** 依赖就绪）减轻单次解码压力后再合并字幕。
+
+---
+
+## 文档从哪里读？
+
+| 需求 | 建议阅读 |
+|------|----------|
+| **5 分钟装机 + Release** | 下文 **三步凑齐**、**维护者** 与 **`docs/RELEASE_GUIDE.zh.md`** |
+| **产品愿景与功能边界（本文档级补充）** | **`docs/CPW_PRO_OVERVIEW.zh.md`** |
+| **源码结构 / 架构图 / 文件名** | **`PROJECT_DOCUMENTATION.md`** |
+| **克隆或小仓库补齐 exe/model** | **`GITHUB_CLONE_SETUP.md`** |
+
+---
+
+## 最终用户：三步凑齐「引擎 + 扩展」
+
+### ① 引擎与运行时（官方）
+
+1. 安装 [VC++ 运行库](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist)。  
+2. **[软件本体](https://github.com/HaujetZhao/CapsWriter-Offline/releases/latest)** 解压到任意目录（例如 `D:\CapsWriter\`）。  
+3. **[模型包](https://github.com/HaujetZhao/CapsWriter-Offline/releases/tag/models)** 按官方说明解压到 `models\` 下对应子目录。  
+
+### ② CPW-Pro 叠加包（本仓库）
+
+任选其一：
+
+- GitHub **Releases** 中下载 **`CPW-Pro-overlay-版本号.zip`**（推荐：仅含可分发源码与小资源），解压后 **全部合并复制**到上一步同一**根目录**（覆盖时注意保留官方 `internal/`、`start_*.exe`、模型）；或  
+- `git clone` 本仓库到临时目录再复制同上（详解见 **`GITHUB_CLONE_SETUP.md`**）。
+
+### ③ Python 依赖与启动
+
+在**上述根目录**打开终端（建议 Python 3.11+）：
+
+```text
+python -m venv myenv
+myenv\Scripts\activate
+pip install -r requirements.txt
+```
+
+先启动官方的 **`start_server.exe`**（听写服务端），再在项目根目录运行：
+
+```text
+python -m cpwpro
+```
+
+Windows 也可用 **`launcher\Launch_CPW-Pro.bat`**（有控制台便于排错），或 **`launcher\Launch_CPW-Pro-quiet.vbs`**（无黑窗，`pythonw`）。
+
+- 首次运行会生成 **`config.json`**（已 `.gitignore`，勿提交密钥）；可先复制 **`config.example.json`**。  
+- **托盘**：关主窗可缩小到系统托盘（需依赖已装 `pystray`、`Pillow`，见 `requirements.txt`）。  
+- **可选资源**：`assets\icon.ico`；托盘图可选 `assets\cpw_pro_tray.png` 或环境变量 **`CPW_TRAY_ICON`**。
+
+更深结构与「为什么这样分层」请读 **`PROJECT_DOCUMENTATION.md`** 与 **`docs/CPW_PRO_OVERVIEW.zh.md`**。
+
+---
+
+## 维护者：发 GitHub Release 前
+
+- **打包**：在仓库根目录执行 **`.\scripts\make_release_overlay.ps1`** → 生成 `dist\CPW-Pro-overlay-<版本>.zip`（`-DryRun` 预演）；详见 **`docs/RELEASE_GUIDE.zh.md`**。
+- **权限/法务/Release 文案清单**：同上文档；Release 附件**勿含**官方 `internal`、`exe`、模型与用户 `config.json`。
+
+---
+
+## 权限与隐私（简要）
+
+| 类型 | 说明 |
+|------|------|
+| 麦克风 | 由 CapsWriter 客户端负责录音；使用 CPW-Pro 的下载/LLM 等功能时按你的操作触发。 |
+| 网络 | `yt-dlp`、在线 LLM API 等仅在用户使用对应功能时访问网络。 |
+| 剪贴板 | 「复制」类功能使用系统剪贴板。 |
+| 本地文件 | 输出目录、临时文件由配置指定；请自行备份与清理。 |
+
+---
+
+## 文档索引
+
+| 文件 | 内容 |
+|------|------|
+| `GITHUB_CLONE_SETUP.md` | 克隆后如何补齐官方二进制与模型 |
+| `docs/CPW_PRO_OVERVIEW.zh.md` | CPW-Pro **产品说明书**：愿景、痛点、模块功能、边界、典型场景 |
+| `PROJECT_DOCUMENTATION.md` | **技术全景**：拓扑、目录、引擎与 CPW-Pro 分界 |
+| `docs/RELEASE_GUIDE.zh.md` | 发布、合规与兼容性维护 |
+
+---
+
+<details>
+<summary><strong>附录：CapsWriter-Offline 原版 README（上游：离线听写输入法核心说明 + 致谢，全文保留）</strong></summary>
+
 # CapsWriter-Offline (v2.5)
 
 ![demo](assets/demo.png)
@@ -178,3 +327,5 @@ A: `Win+R` 输入 `shell:startup` 打开启动文件夹，将服务端、客户�
 
 
 ![sponsor](assets/sponsor.jpg)	
+
+</details>

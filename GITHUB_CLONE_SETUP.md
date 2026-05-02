@@ -1,6 +1,6 @@
 # 从 GitHub 拉取后如何跑起来（CPW-Pro + CapsWriter）
 
-本文说明：**本仓库在 GitHub 上只放源码**；**不能与官方绿色包划等号**，克隆后需要补上官方发行物里的运行时与模型，才能完整运行。
+与根目录 **`readme.md`**（含 **CPW-Pro 专章**：目的、痛点、功能表；另有 **原版 CapsWriter README 附录**）、**`docs/CPW_PRO_OVERVIEW.zh.md`**（产品说明书）、**`PROJECT_DOCUMENTATION.md`**（架构）、**`docs/RELEASE_GUIDE.zh.md`**（发布自检）互为补充。
 
 ---
 
@@ -66,9 +66,13 @@ Python 依赖（`requirements.txt`）可 `pip` 安装；**上述 exe / internal 
 
 ```powershell
 cd "...\CapsWriter-Offline"
-.\scripts\sync_to_github_clone.ps1           # 同步到同级 CapsWriter-Offline-GitHub
-.\scripts\sync_to_github_clone.ps1 -DryRun   # 预演
+.\scripts\sync_to_github_clone.ps1           # 默认：仅同步叠加面（与 overlay ZIP 同源清单，外加 .gitignore / LICENSE）
+.\scripts\sync_to_github_clone.ps1 -DryRun   # 预演（robocopy /L）
+# 若曾有过「整仓库」同步，目标里残留的 util\models\core_*.py 等不会自动删，请按需手工删掉再 push
+.\scripts\sync_to_github_clone.ps1 -FullMirror # 不推荐：沿用旧逻辑，近似整棵树 robocopy /E（易把小仓库灌满）
 ```
+
+清单统一定义在 **`scripts/_cpw_overlay_manifest.ps1`**（与 **`make_release_overlay.ps1`** 共用）。
 
 同步完成后，在 **`CapsWriter-Offline-GitHub`** 里：`git add` → `commit` → `push`。
 

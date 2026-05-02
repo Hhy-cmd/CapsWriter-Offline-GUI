@@ -1,6 +1,7 @@
 # CapsWriter-Offline + CPW-Pro — 项目技术文档（全景版）
 
-> **说明**：本文档在官方 CapsWriter-Offline 架构说明基础上，并入 **CPW-Pro**（Python 包 **`cpwpro`**，入口 `python -m cpwpro`）当前实现、目录布局与推荐的代码分层，便于二次开发与 GitHub 开源发布。
+> **说明**：本文档在官方 CapsWriter-Offline 架构说明基础上，并入 **CPW-Pro**（Python 包 **`cpwpro`**，入口 `python -m cpwpro`）当前实现、目录布局与推荐的代码分层，便于二次开发与 GitHub 开源发布。  
+> **脚本 / 启动一览**：详见 **`docs/SCRIPTS_RUNBOOK.zh.md`**（仅随 Git 仓库维护；发行用 **`scripts/make_release_overlay.ps1`** 打的 overlay ZIP **不含**此文，以免终端用户信息与维护者备忘混在一起）。
 
 ## 一、项目概述
 
@@ -9,7 +10,7 @@ CapsWriter-Offline 是一款**完全离线的语音输入与音视频转录工�
 1. **实时语音输入**：按下 CapsLock 讲话，松开后识别结果自动上屏
 2. **音视频文件转录**：将 mp4/mp3/wav/m4a 等文件转录为 srt 字幕 + txt 文本 + json 时间戳
 3. **AI 润色与翻译**：模块化 LLM 角色系统（`util/llm/` + `LLM/` 角色脚本），支持 OpenAI/DeepSeek/智谱/Ollama 等多厂商
-4. **CPW-Pro GUI**：基于 CustomTkinter 的 **独立工作台**，负责链接/文件输入、下载与 **16k WAV 准备**、拉起/检测 `start_server`、`start_client.exe` 文件转写、**字幕编辑 + 波形示波 + 播放**、基于 `prompts.json` 的 **流式 AI 笔记**（`cpwpro/support/llm_client.py`，与引擎侧 `util/llm/` 并存但职责不同）
+4. **CPW-Pro GUI**：基于 CustomTkinter 的 **独立工作台**（详见 **`docs/CPW_PRO_OVERVIEW.zh.md`** 产品说明）；技术拓扑见 **`readme.md`**「CPW-Pro」章节与本文后续章节。链路包括链接/文件输入、下载与 **16k WAV 准备**、拉起/检测 `start_server`、`start_client.exe` 文件转写、**字幕编辑 + 波形示波 + 播放**、基于 `prompts.json` 的 **流式 AI 笔记**（`cpwpro/support/llm_client.py`，与引擎侧 `util/llm/` 并存但职责不同）
 
 ---
 
