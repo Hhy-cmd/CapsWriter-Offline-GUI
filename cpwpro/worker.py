@@ -197,9 +197,21 @@ class CPWWorker:
             if r.returncode == 0:
                 log_fn(f"[成功] 音频已就绪：{os.path.basename(out_wav)}")
                 return out_wav
-            for line in [l for l in r.stderr.splitlines() if l.strip()][-5:]:
+            err_tail = [l for l in r.stderr.splitlines() if l.strip()][-8:]
+            for line in err_tail[-5:]:
                 log_fn(f"[ffmpeg] {line}")
             log_fn(f"[Error] ffmpeg 失败（退出码 {r.returncode}）")
+            stderr_l = (r.stderr or "").lower()
+            if "moov atom not found" in stderr_l:
+                log_fn(
+                    "[Tip] 典型原因：MP4 未写完（下载中断、录屏/导出异常退出、拷贝未完成）。"
+                    "请用播放器确认能否从头播放到尾，或重新导出/另存为可播放的副本后再试。"
+                )
+            elif "invalid data found when processing input" in stderr_l:
+                log_fn(
+                    "[Tip] 文件内容与扩展名可能不符，或已损坏。"
+                    "可尝试用剪辑软件重新导出，或先用 ffmpeg/VLC 转封装为已知完好的格式。"
+                )
             return None
         except FileNotFoundError:
             log_fn("[Error] 未找到 ffmpeg，请安装并加入 PATH")

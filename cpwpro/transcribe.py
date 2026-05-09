@@ -92,7 +92,13 @@ def run_extract_all(
             ready_audio_files.append(wav)
             ok += 1
     hooks.set_progress(0.58, "提取完成")
-    hooks.log(f"[Info] 转换完成：{ok}/{len(files)}")
+    n = len(files)
+    if ok == n:
+        hooks.log(f"[Info] 提取成功：{ok}/{n}")
+    elif ok == 0:
+        hooks.log(f"[Error] 全部提取失败（{ok}/{n}）。请根据上方 FFmpeg 报错检查源文件是否完整、可播放。")
+    else:
+        hooks.log(f"[Warn] 部分提取成功：{ok}/{n}，未成功的文件已跳过。")
     hooks.set_idle(keep_loaded=True)
 
 

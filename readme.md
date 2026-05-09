@@ -1,6 +1,6 @@
 # CPW-Pro · CapsWriter-Offline 扩展套件
 
-![demo](assets/pro_demo.png)
+![demo](assets/demo.png(2))
 
 **CPW-Pro**（包名 **`cpwpro`**）是在 **[CapsWriter-Offline](https://github.com/HaujetZhao/CapsWriter-Offline)** 之上的一层 **桌面「语音转写工作站」**：把你已经拥有的**官方离线引擎**接到**更清晰的内容创作流水线**里——链接/本地音视频进来，**规整为 16 kHz WAV**，调度 **`start_client.exe`** 做 ASR，再用**波形与时间轴对齐的字幕编辑器**校对，最后可选用 **Prompt 模板 + OpenAI 兼容 API** 生成结构化笔记。**官方负责「听得准」；CPW-Pro 负责「接得顺、改得爽、归档方便」。**
 
@@ -10,7 +10,7 @@
 
 | 项目 | 当前值（发版时请与 `cpwpro/_version.py` 同步核对） |
 |------|-----------------------------------------------|
-| **CPW-Pro 版本** | `1.0.2` |
+| **CPW-Pro 版本** | `1.0.0` |
 | **已验证的官方引擎** | 与官方 readme 所述 **v2.5-alpha** 及 **同目录结构的 [Latest Release](https://github.com/HaujetZhao/CapsWriter-Offline/releases/latest)** 联调（结构含 `start_server.exe`、`start_client.exe`、`internal/`、`models/` 等）；验证参考日期 **2026-05** |
 
 **兼容性**：CPW-Pro 依赖「官方绿色包」的**目录布局与 exe 调用方式**。若官方日后更改文件名、路径或转写协议，可能需要更新本扩展；请关注你自己仓库主页上的 **「Releases」** 页的兼容性说明（在 GitHub 仓库页点击 *Releases → 查看最新版说明*）。
